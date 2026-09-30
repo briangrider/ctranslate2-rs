@@ -84,6 +84,14 @@ fn build_ctranslate2() {
 
         println!("cargo::rustc-link-arg=/FORCE:MULTIPLE");
         cmake.profile("Release").cxxflag("/EHsc").static_crt(true);
+        // The cmake crate drops every /O flag it is given and, for the Visual Studio generator, sets the Release
+        // flags itself, so CTranslate2 (and, through FindCUDA's host flag propagation, the host side of its CUDA
+        // kernels) built unoptimized, with asserts on. The Release flags are given whole here instead. Passing them
+        // any wider (CMAKE_CXX_FLAGS, or cl's _CL_ variable) reaches CMake's compiler check too, whose Debug build
+        // refuses -O2 beside /RTC1.
+        cmake
+            .define("CMAKE_C_FLAGS_RELEASE", "-nologo -MT -Brepro -W0 -O2 -DNDEBUG")
+            .define("CMAKE_CXX_FLAGS_RELEASE", "/EHsc -nologo -MT -Brepro -W0 -O2 -DNDEBUG");
     }
     let mut include_paths: Vec<PathBuf> = env::var("CMAKE_INCLUDE_PATH")
         .as_ref()
