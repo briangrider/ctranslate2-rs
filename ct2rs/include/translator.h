@@ -58,6 +58,13 @@ public:
     inline size_t num_replicas() const {
         return this->impl->num_replicas();
     }
+
+    // Frees the models' weights and the memory the pool's threads keep cached, leaving the threads running:
+    // what Drop does on Windows before leaking the pool, whose destructor would join the threads.
+    inline void release_models() const {
+        this->impl->detach_models();
+        this->impl->clear_cache();
+    }
 };
 
 inline std::unique_ptr<Translator> translator(

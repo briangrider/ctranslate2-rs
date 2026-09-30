@@ -128,6 +128,8 @@ mod ffi {
         fn num_active_batches(self: &Translator) -> Result<usize>;
 
         fn num_replicas(self: &Translator) -> Result<usize>;
+
+        fn release_models(self: &Translator);
     }
 }
 
@@ -568,11 +570,15 @@ impl Debug for Translator {
 
 // Releasing `UniquePtr<Translator>` invokes joining threads.
 // However, on Windows, this causes a deadlock.
-// As a workaround, it is bypassed here.
+// As a workaround, it is bypassed here, after freeing the models' weights and cached memory, which joins no
+// threads: otherwise every dropped model kept its memory, on the GPU too, until the process ended.
 // See also https://github.com/jkawamoto/ctranslate2-rs/issues/64
 #[cfg(target_os = "windows")]
 impl Drop for Translator {
     fn drop(&mut self) {
+        if !self.ptr.is_null() {
+            self.ptr.release_models();
+        }
         let ptr = std::mem::replace(&mut self.ptr, UniquePtr::null());
         unsafe {
             std::ptr::drop_in_place(ptr.into_raw());
